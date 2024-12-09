@@ -3,6 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <errno.h>
 
 #include "ls_command.h"
 
@@ -59,13 +62,24 @@ int main() {
             while (fgets(line, MAX_LINE, file) != NULL) {
                 printf("%s", line);  // 읽은 한 줄을 출력합니다.
             }
+            fclose(file);
             printf("\n");
 
         } else {
             if (access(argv[0], X_OK) == 0) {
-                printf("execute %s\n", argv[0]);
+                pid_t pid = fork();
+                if (pid == 0) { // child process
+                    execvp(argv[0], argv);
+                    perror("execvp");
+                    exit(EXIT_FAILURE);
+                } else if (pid > 0) { // parent process
+                    int status;
+                    waitpid(pid, &status, 0);
+                } else {
+                    perror("fork");
+                }
             } else {
-                printf("command not found: %s\n", argv[0]);
+                fprintf(stderr, "command not found: %s\n", argv[0]);
             }
         }
     }
